@@ -148,12 +148,7 @@ def replace(c1_i, e1_i, c2_i, e2_i,  Au_index, P_index, match_Au_index, match_P_
         for atom in c2:
             coords_rotated.append(np.dot(rotation, atom).tolist())
         c2=np.array(coords_rotated)
-    #c2+=np.array([0.0,0.7,0.0])
-    # rotatble bonds to P
-    #print(smi1)
-    #rot_bonds=get_rotatable_bonds(smi1)
-    #print(rot_bonds)
-    #print(Au_index, P_index)
+
 
 
     if rotate_third_axis:
@@ -191,10 +186,8 @@ def replace(c1_i, e1_i, c2_i, e2_i,  Au_index, P_index, match_Au_index, match_P_
             if min_dist>min_best: #min_dist>min_dist_opt and 
                 min_best=min_dist
                 angle2_best=angle2
-                #print("found better RMSD: %f"%(RMSD_best))
 
         if angle2_best == None:
-            #print("FAILED")
             print("ERROR: Did not find a good rotation angle without clashes! %s"%(smiles))
             return(False,None,None)
 
@@ -223,15 +216,6 @@ def replace(c1_i, e1_i, c2_i, e2_i,  Au_index, P_index, match_Au_index, match_P_
             e2_final.append(e2[idx])
 
     c_final=np.array(c_final)
-
-    #all_steps.append(np.copy(c2_final))
-    #all_elements.append(["K" for e in e2_final])
-
-    #all_steps.append(np.copy(c_final))
-    #all_elements.append(e_final)
-
-
-    #exportXYZs(all_steps,all_elements,"group_rotation.xyz")
 
     e_final=[str(x) for x in e_final]
     return(True, c_final, e_final)

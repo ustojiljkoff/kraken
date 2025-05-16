@@ -69,7 +69,7 @@ def get_bonds(coords, elements, force_bonds=False, forced_bonds=[]):
                 rco = rcov[elements[i]]+rcov[elements[iat]]
                 rco = rco*k2
                 rr=rco/r
-                damp=1.0/(1.0+np.math.exp(-k1*(rr-1.0)))
+                damp=1.0/(1.0+np.exp(-k1*(rr-1.0)))
                 if damp > 0.85: #check if threshold is good enough for general purpose
                     conmat[i,iat],conmat[iat,i] = 1,1
                     pair=[min(i,iat),max(i,iat)]
@@ -185,61 +185,6 @@ def get_bonds(coords, elements, force_bonds=False, forced_bonds=[]):
     return(bonds)
 
 
-
-
-'''
-def get_bonds(coords, elements):
-    bondmax=1.7
-    bondmax_special1=2.2
-    bondmax_special2=2.8
-    moltree=scsp.KDTree(coords)
-    bonds=[]
-    for atomidx,atom in enumerate(coords):
-        #print(elements[atomidx])
-        if elements[atomidx].capitalize() in ["Al","S","Si","P"]:
-            #print("this is a special atom")
-            bondmax_here=bondmax_special1
-        elif elements[atomidx].capitalize() in ["Ir","Cu","Au","Pd","As", "Ni", "Fe"]:
-            #print("this is a special atom")
-            bondmax_here=bondmax_special2
-        else:
-            #print("this is a normal atom")
-            bondmax_here=bondmax
-        neighbours=moltree.query_ball_point(atom,bondmax_here)
-        for neighbour in neighbours:
-            if neighbour != atomidx:
-                pair=[min(neighbour, atomidx),max(neighbour, atomidx)]
-                if not pair in bonds:
-                    elements_bond=[elements[pair[0]],elements[pair[1]]]
-                    dist=np.linalg.norm(coords[pair[0]]-coords[pair[1]])
-                    if "Pd" in elements_bond:
-                        if "P" in elements_bond or "Cl" in elements_bond or "As" in elements_bond:
-                            bonds.append(pair)
-
-                    elif "Ni" in elements_bond:
-                        if "P" in elements_bond or "C" in elements_bond:
-                            bonds.append(pair)
-
-                    elif "Fe" in elements_bond:
-                        if "H" not in elements_bond:
-                            bonds.append(pair)
-
-                    elif "As" in elements_bond:
-                        if "Pd" in elements_bond or "F" in elements_bond:
-                            bonds.append(pair)
-
-                    elif "P" in elements_bond and "H" in elements_bond:
-                        if dist<bondmax:
-                            bonds.append(pair)
-
-                    elif "P" in elements_bond and ("C" in elements_bond or "O" in elements_bond or "N" in elements_bond):
-                        if dist<bondmax_special1:
-                            bonds.append(pair)
-                    else:
-                        bonds.append(pair)
-    return(bonds)
-'''
-
 def separate_at_bond(coords, elements, bonds, bondidx, smiles):
 
     start1=bonds[bondidx][0]
@@ -319,24 +264,7 @@ def separate_at_bond(coords, elements, bonds, bondidx, smiles):
 def get_ligand_indeces(coords, elements, P_index, smiles, metal_char):
 
     bonds = get_bonds(coords, elements, force_bonds=True, forced_bonds=[[P_index, elements.index(metal_char)]])
-    #indeces=[]
-    #for b in bonds:
-    #    indeces.append(b[0])
-    #    indeces.append(b[1])
-    #indeces=list(set(indeces))
-    #print(len(indeces))
-    #for i in range(len(indeces)):
-    #    if i not in indeces:
-    #        print(i, elements[i])
-    #exit()
-    #print(len(bonds))
 
-    #print(elements)
-    #print(P_index)
-    #for bondidx, bond in enumerate(bonds):
-    #    elements_bond=[elements[bond[0]],elements[bond[1]]]
-    #    print(elements_bond)
-    #exit()
 
     found=False
     for bondidx, bond in enumerate(bonds):
@@ -346,14 +274,7 @@ def get_ligand_indeces(coords, elements, P_index, smiles, metal_char):
             break
     if found:
         indeces1, indeces2 = separate_at_bond(coords, elements, bonds, bondidx, smiles)
-        #print("group 1:")
-        #for idx in indeces1:
-        #    element_bond = elements[idx]
-        #    print(element_bond)
-        #print("group 2:")
-        #for idx in indeces2:
-        #    element_bond = elements[idx]
-        #    print(element_bond)
+
         
         if metal_char==elements_bond[0]:
             mask=indeces2
@@ -410,7 +331,7 @@ def run_crest(coords, elements, moldir, filename, settings, smiles):
         print("   ---   found old crest run and read output")
         pass
     crest_done, coords_all, elements_all, boltzmann_data = get_crest_results(settings)
-
+    print("---Crest is done", crest_done)
     if len(elements_all)==0:
         exit("ERROR: No conformers found for %s"%(smiles))
 
@@ -458,23 +379,28 @@ def run_crest(coords, elements, moldir, filename, settings, smiles):
             if not skip_this_conformer:
                 done = False
                 if os.path.exists("xtb.log") or os.path.exists("xtb_ipea/xtb_ipea.log"):
+                    print("   ---   found old xtb run and read output")
                     done1 = False
                     for line in open("xtb.log", "r"):
                         if "wall-time" in line:
                             done1 = True
+                            print("   ---   xtb done")
                             break
                     done2 = False
                     for line in open("xtb_ipea/xtb_ipea.log", "r"):
                         if "wall-time" in line:
                             done2 = True
+                            print("   ---   xtb_ipea done")
                             break
                     if done1 and done2:
                         done=True
+                        print("   ---   xtb completely done")
                     else:
                         done = False
                         os.system("rm -rf *")
 
                 if not done:
+                    print("   ---   xtb calculation failed")
                     exportXYZ(coords_all[conf_idx],elements_all[conf_idx],filename2, mask=mask)
                     call_xtb(filename2, settings)
                 xtb_done_here, muls, alphas, wils, dip, alpha, fukui, HOMO_LUMO_gap, IP_delta_SCC, EA_delta_SCC, global_electrophilicity_index, esp_profile, esp_points, occ_energies, virt_energies, nucleophilicity = get_results_conformer()
@@ -502,6 +428,7 @@ def run_crest(coords, elements, moldir, filename, settings, smiles):
                 #print("did conf %i, len of data: %i"%(conf_idx,len(electronic_properties_conformers)))
                 coords_all_used.append(coords_all[conf_idx])
                 elements_all_used.append(elements_all[conf_idx])
+                print(f"Number of conformers: {len(coords_all_used)}")
                 boltzmann_data_used.append(boltzmann_data[conf_idx])
                 conf_indeces_used.append(conf_idx)
                 if not xtb_done_here or not dummy_position_done_here:
@@ -541,7 +468,7 @@ def get_dummy_positions():
 
 def read_crest_log():
     read=False
-    data=[]
+    boltzmann_data=[]
     for line in open("crest.log","r"):
         if "T /K" in line:
             read=False
@@ -554,15 +481,15 @@ def read_crest_log():
                     origin=line.split()[7]
                 else:
                     origin=None
-                data.append({"energy":energy,"weight":weight,"degen":degen,"origin":origin})
+                boltzmann_data.append({"energy":energy,"weight":weight,"degen":degen,"origin":origin})
 
-        if "Erel/kcal     Etot      weight/tot conformer  set degen    origin" in line:
+        if "Erel/kcal" in line:
             read=True
-    return(data)
+    return(boltzmann_data)
 
 
 def read_xtb_log():
-    read_mul=False
+    read_mul=True
     read_wil=False
     read_dip=False
     muls=[]
@@ -784,8 +711,8 @@ def read_xtb_log1():
         fukui=None
     if len(wils)==0:
         wils=None
-    if len(wils)==0:
-        wils=None
+    # if len(wils)==0:
+    #     wils=None
     if len(alphas)==0:
         alphas=None
 
@@ -862,12 +789,12 @@ def get_crest_results(settings):
         #return(False, [], [], [])
     if done:
         coords_all, elements_all = readXYZs("crest_conformers.xyz")
-        data = read_crest_log()
+        boltzmann_data = read_crest_log()
         #if len(coords_all)>1000:
         #    coords_all = coords_all[:1000]
         #    elements_all = elements_all[:1000]
         #    data = data[:1000]
-        return(True, coords_all, elements_all, data)
+        return(True, coords_all, elements_all, boltzmann_data)
     else:
         if os.path.exists("OPTIM"):
             os.system("rm -r OPTIM")
@@ -951,7 +878,12 @@ def call_crest(filename, settings):
 
     os.environ["OMP_NUM_THREADS"]="%s"%(settings["OMP_NUM_THREADS"])
     os.environ["MKL_NUM_THREADS"]="%s"%(settings["MKL_NUM_THREADS"])
-    command="crest %s --gbsa toluene -metac -nozs"%(filename)
+    ntasks = (os.getenv("NTASKS", "16"))
+    if ntasks == 1 or ntasks == 0 or ntasks == None:
+        ntasks = 16
+    print("Number of tasks: %s"%(ntasks))
+    command=f"crest %s --gbsa toluene -metac -nozs -T {ntasks}"%(filename)
+    print(f"running currently: {command}")
     #command="crest %s --gbsa toluene -metac"%(filename)
     #command="crest %s -ethr %f -pthi %f -metac"%(filename, settings["max_E"], settings["max_p"])
     # crest -chrg %i is used for charges
@@ -980,11 +912,18 @@ def call_crest(filename, settings):
 
 def call_xtb(filename, settings):
 
+    ntasks = os.getenv("NTASKS", "16")
+    if ntasks == 1 or ntasks == 0 or ntasks == None:
+        ntasks = 16
+
+    print("Number of tasks: %s"%(ntasks))
     os.environ["OMP_NUM_THREADS"]="%s"%(settings["OMP_NUM_THREADS"])
     os.environ["MKL_NUM_THREADS"]="%s"%(settings["MKL_NUM_THREADS"])
-    command="xtb --gbsa toluene --lmo --vfukui --esp %s"%(filename)
+    command=f"xtb --gbsa toluene --lmo --vfukui --esp -P {ntasks} %s"%(filename)
+    print(f"running currently: {command}")
     # check if xcontrol works
     args = shlex.split(command)
+
     mystdout = open("xtb.log","a")
     process = subprocess.Popen(args, stdout=mystdout, stderr=subprocess.PIPE)
     out, err = process.communicate()
@@ -1007,7 +946,8 @@ def call_xtb(filename, settings):
     startdir=os.getcwd()
     os.chdir("xtb_ipea")
     os.system("mv %s/%s ."%(startdir,filename))
-    command="xtb --gbsa toluene --vomega --vipea %s"%(filename)
+    command=f"xtb --gbsa toluene --vomega --vipea -P {ntasks} %s"%(filename)
+    print(f"running currently: {command}")
     # check if xcontrol works
     args = shlex.split(command)
     mystdout = open("xtb_ipea.log","a")
@@ -2134,8 +2074,25 @@ def combine_csvs(molname, resultsdir, data_here, data_here_confs):
     p_idx=data_here["p_idx"]
     ligand_data[molname]["p_idx"] = p_idx
     for key in datagroups_vec:
-        ligand_data[molname][key] = data_here["boltzmann_averaged_data"][key][p_idx]
+        print(f"Key: {key}, p_idx: {p_idx}, Data: {data_here['boltzmann_averaged_data'][key]}")
+    
+    #The next part of the code handles missing data gracefully
 
+    if key in data_here["boltzmann_averaged_data"]:
+        if isinstance(data_here["boltzmann_averaged_data"][key], list) and len(data_here["boltzmann_averaged_data"][key]) > 0:
+            if p_idx < len(data_here["boltzmann_averaged_data"][key]):
+                print("data_here['boltzmann_averaged_data'][key][p_idx]", data_here["boltzmann_averaged_data"][key][p_idx])
+                ligand_data[molname][key] = data_here["boltzmann_averaged_data"][key][p_idx]
+            else:
+                print(f"WARNING: p_idx ({p_idx}) is out of range for key '{key}'.")
+                ligand_data[molname][key] = None
+        else:
+            print(f"WARNING: Key '{key}' has no data or is not a list.")
+            ligand_data[molname][key] = None
+    else:
+        print(f"WARNING: Key '{key}' not found in boltzmann_averaged_data.")
+        ligand_data[molname][key] = None
+    #     ligand_data[molname][key] = data_here["boltzmann_averaged_data"][key][p_idx]
 
     # read the conformer results files to get more information about each single conformer
     #outfilename_confs="%s/%s_confs.yml"%(resultsdir, molname)
@@ -2154,9 +2111,6 @@ def combine_csvs(molname, resultsdir, data_here, data_here_confs):
     ligand_data[molname]["degeneracies"] = degeneracies_here
     ligand_data[molname]["energies"] = energies_here
 
-
-
-
     weights_own = get_weights(energies_here, degeneracies_here)
 
     # draw N random conformers (including lowest)
@@ -2164,8 +2118,6 @@ def combine_csvs(molname, resultsdir, data_here, data_here_confs):
     N = min(N_max, n_conformers)
     conformers_to_use = np.array([0] + sorted(np.random.choice(list(range(1,n_conformers)), size=N-1, replace=False).tolist()))
     weights_N = get_weights(energies_here, degeneracies_here, selection=conformers_to_use)
-
-
 
     coords_all = []
     elements_all = []
@@ -2189,9 +2141,43 @@ def combine_csvs(molname, resultsdir, data_here, data_here_confs):
 
     for p in electronic_properties:
         if p in datagroups:
-            feature_ref = ligand_data[molname][p+"_boltzmann"]
+            feature_ref = ligand_data[molname].get(p+"_boltzmann", None)
+    else:
+        feature_ref = ligand_data[molname].get(p, None)
+    if feature_ref is not None:
+        data_here = []
+        mask_here = []
+        for c_idx in range(n_conformers):
+            if p in datagroups_vec:
+                x = data_here_confs[f"conf_{c_idx}"]["electronic_properties"].get(p, None)
+                if x is None:
+                    print(f"WARNING: Found None for {p} in conformer {c_idx}.")
+                    data_here.append(x)
+                else:
+                    mask_here.append(c_idx)
+                    data_here.append(float(x))
+            else:
+                x = data_here_confs[f"conf_{c_idx}"]["electronic_properties"].get(p, None)
+                if x is None:
+                    print(f"WARNING: Found None for {p} in conformer {c_idx}.")
+                    data_here.append(x)
+                else:
+                    mask_here.append(c_idx)
+                    data_here.append(float(x))
+        mask_here = np.array(mask_here)
+        if len(mask_here) != len(weights_here):
+            ligand_data[molname][p] = None
         else:
-            feature_ref = ligand_data[molname][p]
+            feature_all = np.sum(np.array(data_here) * np.array(weights_here))
+            feature_N = np.sum(np.array(data_here)[conformers_to_use] * weights_N)
+        ligand_data[molname]["confdata"][p] = data_here
+    else:
+        print(f"WARNING: Key '{p}' is missing.")
+    for p in electronic_properties:
+        if p in datagroups:
+            feature_ref = ligand_data[molname][p+"_boltzmann", None]
+        else:
+            feature_ref = ligand_data[molname].get(p)
         if feature_ref is not None:
             data_here=[]
             mask_here=[]

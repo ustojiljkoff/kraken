@@ -11,9 +11,16 @@ from rdkit import Chem
 # own stuff
 import utils
 import geo_utils
+import psutil
 
 
 if __name__ == "__main__":
+
+    start_time = time.time()
+    process = psutil.Process()
+    cpu_start_time = process.cpu_times()
+
+
     if len(sys.argv)==5 and not "-idx" in sys.argv:
         add_Ni_CO_3 = None
         if sys.argv[1]=="-name":
@@ -176,16 +183,6 @@ if __name__ == "__main__":
     time1=time.time()
     # read or generate the coordinates
     moldir="%s%s"%(molname, suffix)
-
-
-
-    #smiles="[P-]([H])([H])([H])[Pd+]([Cl])[Cl]"
-    #smiles2 = utils.sanitize_smiles(smiles)
-    #print(smiles)
-    #print(smiles2)
-    #coords, elements = utils.get_coords_from_smiles(smiles2, suffix, conversion_method)
-    #utils.exportXYZ(coords,elements,"test.xyz")
-    #exit()
 
     if generate_xyz:
 
@@ -388,6 +385,7 @@ if __name__ == "__main__":
     print("   ---   Found %i conformers of molecule %s"%(len(elements_all),molname))
 
     # run morfeus
+    print("Initiating morfeus calculation")
     morfeus_parameters_conformers = []
 
     for conf_idx, coords_conf in enumerate(coords_all):
@@ -397,6 +395,7 @@ if __name__ == "__main__":
         print("   ---   Run morfeus calculation of molecule %s, conformer %i out of %i"%(molname,conf_idx+1,len(coords_all)))
         morfeus_parameters = utils.run_morfeus(coords_conf, elements_conf, dummy_positions, moldir_conf, settings, smiles)
         morfeus_parameters_conformers.append(morfeus_parameters)
+        print("   ---   Finished morfeus calculation of molecule %s, conformer %i out of %i"%(molname,conf_idx+1,len(coords_all)))
 
 
 
@@ -494,7 +493,43 @@ if __name__ == "__main__":
 
     print("   ###   Finished molecule %s"%(molname))
 
+    end_time = time.time()
+    runtime = end_time - start_time
+    memory_info = process.memory_info()
+    memory_usage_mb = memory_info.rss / (1024 * 1024)  # Convert bytes to megabytes
+    cpu_end_time = process.cpu_times()
+    user_cpu_time = cpu_end_time.user - cpu_start_time.user
+    system_cpu_time = cpu_end_time.system - cpu_start_time.system
+    total_cpu_time = user_cpu_time + system_cpu_time
 
+    print("   ###   Total runtime: %s seconds"%(runtime))
+    print("   ###   Total runtime: %s minutes"%(runtime/60))
+    print("   ###   Total runtime: %s hours"%(runtime/3600))
+    print("   ###   Memory usage: %s MB"%(memory_usage_mb))
+    print("   ###   CPU time: %s seconds"%(total_cpu_time))
+    print("   ###   CPU time: %s minutes"%(total_cpu_time/60))
+    print("   ###   CPU time: %s hours"%(total_cpu_time/3600))
+
+
+
+    omp_for_log = os.environ["OMP_NUM_THREADS"]="%s"%(settings["OMP_NUM_THREADS"])
+    mkl_for_log = os.environ["MKL_NUM_THREADS"]="%s"%(settings["MKL_NUM_THREADS"])
+    ntasks_for_log = (os.getenv("NTASKS"))
+
+    with open("resource_usage.log", "w") as log_file:
+        log_file.write("Resource usage log\n\n")
+        log_file.write("Running calculation with the following settings:\n")
+        log_file.write(f"OMP_NUM_THREADS: {omp_for_log}\n")
+        log_file.write(f"MKL_NUM_THREADS: {mkl_for_log}\n")
+        log_file.write(f"NTASKS: {ntasks_for_log}\n")
+
+        log_file.write("\n")
+        log_file.write("Resource usage summary:\n")
+        log_file.write(f"Total runtime: {runtime:.2f} seconds\n")
+        log_file.write(f"Total memory usage: {memory_usage_mb:.2f} MB\n")
+        log_file.write(f"Total CPU time: {total_cpu_time:.2f} seconds\n")
+        log_file.write(f"Total CPU time in seconds: {total_cpu_time:.4f} CPU-hours\n")
+        
 
 
 

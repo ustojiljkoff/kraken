@@ -1,3 +1,31 @@
+********************************************************************
+# **Comments on the fork**
+
+# Modification of the original code:
+- Bug fixes and error corrections
+- Enabled submission of **all ligands** from the `input.csv` file through a single Python script.
+- Allowing single job submission thorugh SLURM.
+- Handling errors more gracefully.
+- Optimized for the `sciCORE` infrastructure of the University of Basel
+
+# Usage
+## Submission of a single job
+1. Modify the `bash_single_job.sh` file to suit the needs of your cluster.
+2. Modify the `idx` and `job_type` variables of the `bash_single_job.sh` file to fit your requirements.
+3. Submit the job through `sbatch bash_single_job.sh`
+
+## Submission of all the ligands from the input.csv file
+1. Modify the `generate_and_submit_jobs` function of the `submit_input.py` file so it creates submission script that suits the needs of your cluster
+2. Submit the job through `python submit_input.py`
+
+# Requirements
+
+Listed in the `kraken_xtb.yml` file, and do not include requirements for the DFT part.
+********************************************************************
+
+<br><br><br><br>
+# (Original ReadMe)
+
 # kraken
 Code to compute electronic and steric features to create a database of ligands and their properties.
 
