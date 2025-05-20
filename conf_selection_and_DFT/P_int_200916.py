@@ -2,20 +2,19 @@ import sys,subprocess,re,os,shutil
 import numpy as np
 import pathlib as pl
 cwd = pl.Path.cwd()
-
+import yaml
 import ded # from Robert Pollice. Minor modification to accept a working directory as argument
 import read_geom # TG
+from utils import *
 
 float_pattern = re.compile(r"[-+]?\d*\.\d+")
 Pintresults = ["Pint_P_int","Pint_dP","Pint_P_min","Pint_P_max","volume","surface_area","sphericity"]
 
-
-command = 'Multiwfn'
-
+mwfn_command = f"{multiwfn_path}/Multiwfn"
 
 def run_Multiwfn(wd,name,ext):
     inputargs = "12\n2\n-2\n3\n0.25\n0\n7\nq\n"
-    multiwfn = subprocess.run(f"{command} {name}{ext}",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True,input=inputargs,cwd=wd)
+    multiwfn = subprocess.run(f"{mwfn_command} {name}{ext}",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True,input=inputargs,cwd=wd)
     # a = subprocess.Popen("Multiwfn " + compfile, stdin=subprocess.PIPE,stdout=subprocess.PIPE, stderr=subprocess.STDOUT,cwd=wd,shell=True)
     # subprocess.run("mv", cwd / "vtx.txt", cwd / dir+filename+"_vdw.txt",cwd=wd)
     with open(wd/(f"{name}_Multiwfn_out.txt"),"w") as f:
@@ -30,8 +29,8 @@ def run_Multiwfn_win(wd,name,ext):
         inputargs = f"12\n2\n-2\n3\n0.25\n0\n7\n-1\n-1\n100\n2\n5\n{name}.wfn\nq\n"
     else:
         inputargs = "12\n2\n-2\n3\n0.25\n0\n7\nq\n"
-    path_to_settings = '/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/Pint/Multiwfn_3.7_bin_Linux_noGUI/settings.ini'
-    multiwfn = subprocess.run(f"{command} {name}{ext} -set {path_to_settings}",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True,input=inputargs,cwd=wd)
+    path_to_settings = f"{multiwfn_path}/settings.ini"
+    multiwfn = subprocess.run(f"{mwfn_command} {name}{ext} -set {path_to_settings}",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True,input=inputargs,cwd=wd)
     # a = subprocess.Popen("Multiwfn " + compfile, stdin=subprocess.PIPE,stdout=subprocess.PIPE, stderr=subprocess.STDOUT,cwd=wd,shell=True)
     # subprocess.run("mv", cwd / "vtx.txt", cwd / dir+filename+"_vdw.txt",cwd=wd)
     with open(wd/(f"{name}_Multiwfn_out.txt"),"w") as f:
@@ -43,7 +42,7 @@ def run_Multiwfn_win(wd,name,ext):
 
 def run_Multiwfn_win_promol(wd,name):
     inputargs = "5\n-1\n1\n3\n2\n0\n12\n2\n-2\n1\n1\n0.00174\n3\n0.25\n0\n7\nq\n"
-    multiwfn = subprocess.run(f"{command} {name}.xyz",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True,input=inputargs,cwd=wd)
+    multiwfn = subprocess.run(f"{mwfn_command} {name}.xyz",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True,input=inputargs,cwd=wd)
     with open(wd/(f"{name}_Multiwfn_out.txt"),"w") as f:
         f.write(multiwfn.stdout)
     with open(wd/(f"{name}_Multiwfn_err.txt"),"w") as f:
@@ -120,8 +119,10 @@ def P_int_main(name="",directory="./",disp = "d3",promol=False):
                 os.stat(wd/"atomwfn")
             except:
                 os.mkdir(wd/"atomwfn")
-                atomwfn_orig = pl.Path("/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/Pint/Pint/Multiwfn_3.7_bin_Linux_noGUI/examples/atomwfn")
-                [shutil.copyfile(atomwfn_orig/aof,wd/"atomwfn"/aof) for aof in os.listdir(atomwfn_orig)]
+                atomwfn_orig = pl.Path(f"{multiwfn_path}/examples/atomwfn")
+                for aof in os.listdir(atomwfn_orig):
+                    shutil.copyfile(atomwfn_orig/aof,wd/"atomwfn"/aof)
+                #[shutil.copyfile(atomwfn_orig/aof,wd/"atomwfn"/aof) for aof in os.listdir(atomwfn_orig)]
             run_Multiwfn_win_promol(wd,name)
 
         else:
@@ -131,6 +132,7 @@ def P_int_main(name="",directory="./",disp = "d3",promol=False):
                 if os.path.isfile(wd/(name+extension)):
                     found = True
                     # run Multiwfn to generate vtx.txt
+                    print("Running Multiwfn")
                     run_Multiwfn_win(wd,name,extension)
                     break
             if found == False:
@@ -146,8 +148,12 @@ def P_int_main(name="",directory="./",disp = "d3",promol=False):
     try:
         os.stat(wd/(f"{name}_ded_{disp}.txt"))
     except:
-        ded_path = '/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/Pint'
-        t = subprocess.run(f"python {ded_path}/ded.py ./{name}.xyz ./{name}_vtx.txt --charge 0 --disp {disp}",cwd=wd,shell=True)
+        print("Running ded.py")
+        print("current working directory: ",wd)
+        print("ded.py path: ",ded_path)
+        print("trying to run command: ",f"python {ded_path} ./{name}.xyz ./{name}_vtx.txt --charge 0 --disp {disp}, cwd=wd, shell=True")
+        t = subprocess.run(f"python {ded_path} ./{name}.xyz ./{name}_vtx.txt --charge 0 --disp {disp}",cwd=wd,shell=True)
+        print(t)
         
     # read results
     results = read_dedout(wd,name,disp)+read_multiwfnout(wd,name)+read_disp(wd,name,disp)
@@ -174,7 +180,7 @@ if __name__ == "__main__":
     files = [file for file in os.listdir(cwd) if 'Pd' not in file]
     for file in files: 
         if file.split(".")[-1] == "fchk":
-        	P_int_main(name=file.split(".")[-2])
-        #elif file.split(".")[-1] == "xyz":
-        #    P_int_main(name=file.split(".")[-2],promol=True)
+            P_int_main(name=file.split(".")[-2])
+        elif file.split(".")[-1] == "xyz":
+            P_int_main(name=file.split(".")[-2],promol=True)
         

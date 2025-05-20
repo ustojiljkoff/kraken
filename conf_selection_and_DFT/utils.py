@@ -15,19 +15,25 @@ from pathlib import Path
 from contextlib import suppress
 from multiprocessing import Pool
 from subprocess import run, PIPE
+import yaml
 
-# Define common paths
-main_kraken_dir    = Path('/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use')
-#main_kraken_dir    = Path('/project/a/aspuru/passos/ligands_final_batch1_2020_02')
+config_path = Path(__file__).resolve().parent / 'config.yaml'
+with open(config_path) as f:
+	config = yaml.safe_load(f)
 
-dft_results_dir    = Path('/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/dft_results')
-#dft_results_dir    = Path('/project/a/aspuru/passos/ligands_final_batch1_2020_02/dft_results')
 
-selected_confs_dir = Path('/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/selected_conformers')
-#selected_confs_dir = Path('/project/a/aspuru/passos/ligands_final_batch1_2020_02/selected_conformers')
-
-#pascal_confs_dir   = Path('/scratch/a/aspuru/pascalf/toronto_ligands_reactions/ligands_final_batch1_2020_02/selected_conformers')
-    ##try leaving this out
+main_kraken_dir    = Path(config["main_kraken_dir"])
+dft_results_dir    = Path(config["dft_results_dir"])
+selected_confs_dir = Path(config["selected_confs_dir"])
+input = Path(config["input_file"])
+tobi_path = Path(config["tobi"])
+sub_script_folder = Path(config["sub_script_folder"])
+gsub = Path(config["gsub"])
+selected_confs_dir = Path(config["selected_confs_dir"])
+pint = Path(config["Pint"])
+ded_path = Path(config["ded"])
+multiwfn_path = Path(config["multiwfn_path"])
+dftd3 = Path(config["dftd3_path"]) #got errors with conda/pip install dftd3, ergo this.
 
 
 def ligands_from_file(fname: str) -> List[str]:

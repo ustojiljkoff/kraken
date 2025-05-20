@@ -1,0 +1,13 @@
+input_file: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT/input.txt                     #Path to .txt file that contains ligand codes, in the original code called example_input.txt
+main_kraken_dir: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT                          #Path to the main kraken directory, where all the scripts are
+dft_results_dir: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT/dft_results              #Path to the directory where DFT results will be stored
+selected_confs_dir: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT/selected_conformers   #Path to the directory where DFT calculations are
+sub_script_folder: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT                        #Path to the directory where folder selected_conformers is, that's going to be called in submitting DFT jobs
+
+tobi: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT/tobi_new_end.py                     #Path to the tobi script
+ded: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT/ded.py                               #Path to the ded script
+Pint: /cluster/home/stojiljkovic/kraken_final/kraken/conf_selection_and_DFT/P_int_200916.py                     #Path to the Pint script
+
+dftd3_path: /cluster/home/stojiljkovic/dftd3/dftd3                                                              #Path to the dftd3 EXECUTABLE, in this case v3.2 downloaded from https://www.chemie.uni-bonn.de/grimme/de/software/dft-d3/get_dft-d3
+multiwfn_path: /cluster/home/stojiljkovic/Multiwfn_3.7_bin_Linux_noGUI                                          #Path to the Multiwfn FOLDER, downloaded from http://sobereva.com/multiwfn/download.html
+gsub: /cluster/home/stojiljkovic/gsub                                                                           #Path to the Gaussian submission script, that you usually use to submit Gaussian jobs (In case of the original code sub16_PL, that is currently in a folder not_used_scripts.)

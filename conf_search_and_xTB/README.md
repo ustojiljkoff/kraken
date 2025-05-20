@@ -1,4 +1,4 @@
-********************************************************************
+
 # **Comments on the fork**
 
 # Modification of the original code:
@@ -7,6 +7,7 @@
 - Allowing single job submission thorugh SLURM.
 - Handling errors more gracefully.
 - Optimized for the `sciCORE` infrastructure of the University of Basel
+- Added `kraken_xtb.yml` file for conda venv installation.
 
 # Usage
 ## Submission of a single job
@@ -23,7 +24,7 @@
 Listed in the `kraken_xtb.yml` file, and do not include requirements for the DFT part.
 ********************************************************************
 
-<br><br><br><br>
+<br><br><br>
 # (Original ReadMe)
 
 # kraken

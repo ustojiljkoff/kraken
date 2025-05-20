@@ -7,16 +7,14 @@
 
 from utils import *
 import PL_conformer_selection_200411 as PLcs
-
+from datetime import datetime
 
 if __name__ == '__main__':
-
+	print("Script started at:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+	print("Current working directory:", os.getcwd())
 	# Retrieve the list of ligands to run
-	ligands = ligands_from_file('/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/example_ligands.txt')
-
-	# Enter main kraken directory
-	os.chdir(main_kraken_dir)
-        # defined in utils.py
+	
+	ligands = ligands_from_file(input) 
 
 	# Run the conformer selection
 	with Pool() as p:

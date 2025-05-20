@@ -20,7 +20,9 @@ import os.path
 from glob import glob
 from multiprocessing import Pool
 from subprocess import run, DEVNULL
-
+import yaml
+from pathlib import Path
+from utils import *
 
 def compute_pint(phos_idx: str) -> None:
     """
@@ -33,7 +35,7 @@ def compute_pint(phos_idx: str) -> None:
     """
 
     # List the data paths
-    data_path = '/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/selected_conformers'
+    data_path = selected_confs_dir
     data_dir  = f"{data_path}/{phos_idx}"
     data_zip  = f"{data_dir}.zip"    
 
@@ -60,7 +62,7 @@ def compute_pint(phos_idx: str) -> None:
                 
         # Step in and run the Pint code
         os.chdir(conf_dir)
-        run(['python', '/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/Pint/P_int.py'], stdout=DEVNULL)
+        run(['python', pint], stdout=DEVNULL)
         os.chdir('..')
 
 

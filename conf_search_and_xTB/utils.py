@@ -376,33 +376,37 @@ def run_crest(coords, elements, moldir, filename, settings, smiles):
             else:
                 mask=[]
 
-            if not skip_this_conformer:
+            if not skip_this_conformer: #Had errors with the original code, this logic fixed it (also a bit faster?)
                 done = False
-                if os.path.exists("xtb.log") or os.path.exists("xtb_ipea/xtb_ipea.log"):
+                xtb_log_exists = os.path.exists("xtb.log")
+                xtb_ipea_log_exists = os.path.exists("xtb_ipea/xtb_ipea.log")
+                if xtb_log_exists or xtb_ipea_log_exists:
                     print("   ---   found old xtb run and read output")
                     done1 = False
-                    for line in open("xtb.log", "r"):
-                        if "wall-time" in line:
-                            done1 = True
-                            print("   ---   xtb done")
-                            break
+                    if xtb_log_exists:
+                        for line in open("xtb.log", "r"):
+                            if "wall-time" in line:
+                                done1 = True
+                                print("   ---   xtb done for conformer %i"%(conf_idx))
+                                break
                     done2 = False
-                    for line in open("xtb_ipea/xtb_ipea.log", "r"):
-                        if "wall-time" in line:
-                            done2 = True
-                            print("   ---   xtb_ipea done")
-                            break
+                    if xtb_ipea_log_exists:
+                        for line in open("xtb_ipea/xtb_ipea.log", "r"):
+                            if "wall-time" in line:
+                                done2 = True
+                                print("   ---   xtb_ipea done")
+                                break
                     if done1 and done2:
-                        done=True
-                        print("   ---   xtb completely done")
+                        done = True
+                        print("   ---   xtb completely done for conformer %i"%(conf_idx))
                     else:
                         done = False
                         os.system("rm -rf *")
-
                 if not done:
                     print("   ---   xtb calculation failed")
                     exportXYZ(coords_all[conf_idx],elements_all[conf_idx],filename2, mask=mask)
                     call_xtb(filename2, settings)
+                    
                 xtb_done_here, muls, alphas, wils, dip, alpha, fukui, HOMO_LUMO_gap, IP_delta_SCC, EA_delta_SCC, global_electrophilicity_index, esp_profile, esp_points, occ_energies, virt_energies, nucleophilicity = get_results_conformer()
                 dummy_position_done_here, dummy_positions = get_dummy_positions()
                 #print(xtb_done_here,dummy_position_done_here)
@@ -2142,72 +2146,30 @@ def combine_csvs(molname, resultsdir, data_here, data_here_confs):
     for p in electronic_properties:
         if p in datagroups:
             feature_ref = ligand_data[molname].get(p+"_boltzmann", None)
-    else:
-        feature_ref = ligand_data[molname].get(p, None)
-    if feature_ref is not None:
-        data_here = []
-        mask_here = []
-        for c_idx in range(n_conformers):
-            if p in datagroups_vec:
-                x = data_here_confs[f"conf_{c_idx}"]["electronic_properties"].get(p, None)
-                if x is None:
-                    print(f"WARNING: Found None for {p} in conformer {c_idx}.")
-                    data_here.append(x)
-                else:
-                    mask_here.append(c_idx)
-                    data_here.append(float(x))
-            else:
-                x = data_here_confs[f"conf_{c_idx}"]["electronic_properties"].get(p, None)
-                if x is None:
-                    print(f"WARNING: Found None for {p} in conformer {c_idx}.")
-                    data_here.append(x)
-                else:
-                    mask_here.append(c_idx)
-                    data_here.append(float(x))
-        mask_here = np.array(mask_here)
-        if len(mask_here) != len(weights_here):
-            ligand_data[molname][p] = None
         else:
-            feature_all = np.sum(np.array(data_here) * np.array(weights_here))
-            feature_N = np.sum(np.array(data_here)[conformers_to_use] * weights_N)
-        ligand_data[molname]["confdata"][p] = data_here
-    else:
-        print(f"WARNING: Key '{p}' is missing.")
-    for p in electronic_properties:
-        if p in datagroups:
-            feature_ref = ligand_data[molname][p+"_boltzmann", None]
-        else:
-            feature_ref = ligand_data[molname].get(p)
+            feature_ref = ligand_data[molname].get(p, None)
         if feature_ref is not None:
-            data_here=[]
-            mask_here=[]
-            for c_idx in range(0,n_conformers):
-                if p in datagroups_vec:
-                    x = data_here_confs["conf_%i"%(c_idx)]["electronic_properties"][p][p_idx]
-                    if x is None:
-                        #print("WARNING: found None in %s of conformer %i"%(p, c_idx))
-                        #x = 0.0
-                        data_here.append(x)
-                    else:
-                        mask_here.append(c_idx)
-                        data_here.append(float(x))
+            data_here = []
+            mask_here = []
+            for c_idx in range(n_conformers):
+                x = data_here_confs[f"conf_{c_idx}"]["electronic_properties"].get(p, None)
+                if x is None:
+                    print(f"WARNING: Found None for {p} in conformer {c_idx}.")
+                    data_here.append(np.nan)  # <--- use np.nan to keep length
                 else:
-                    x = data_here_confs["conf_%i"%(c_idx)]["electronic_properties"][p]
-                    if x is None:
-                        #print("WARNING: found None in %s of conformer %i"%(p, c_idx))
-                        #x = 0.0
-                        data_here.append(x)
-                    else:
-                        mask_here.append(c_idx)
-                        data_here.append(float(x))
-            mask_here=np.array(mask_here)
-            if len(mask_here)!=len(weights_here):
-                ligand_data[molname][p]=None
+                    data_here.append(float(x))
+                    mask_here.append(c_idx)
+            mask_here = np.array(mask_here)
+            if len(mask_here) != len(weights_here):
+                ligand_data[molname][p] = None
             else:
-                feature_all = np.sum(np.array(data_here)*np.array(weights_here))
-                feature_N = np.sum(np.array(data_here)[conformers_to_use]*weights_N)
-                #print("%s:\naverage over all (%i): %.3f / %.3f\naverage over %i: %.3f"%(p, n_conformers, feature_all, feature_ref, N, feature_N))
-            ligand_data[molname]["confdata"][p]=data_here
+                data_here_np = np.array(data_here)
+                # Use nan_to_num or nanmean if you want to ignore NaNs in the sum
+                feature_all = np.nansum(data_here_np * np.array(weights_here))
+                feature_N = np.nansum(data_here_np[conformers_to_use] * weights_N)
+            ligand_data[molname]["confdata"][p] = data_here
+        else:
+            print(f"WARNING: Key '{p}' is missing in ligand_data[{molname}].")
 
 
     for p in morfeus_parameters:
@@ -2232,8 +2194,8 @@ def combine_csvs(molname, resultsdir, data_here, data_here_confs):
             if len(mask_here)!=len(weights_here):
                 ligand_data[molname][p]=None
             else:
-                feature_all = np.sum(np.array(data_here)*np.array(weights_here))
-                feature_N = np.sum(np.array(data_here)[conformers_to_use]*weights_N)
+                feature_all = np.nansum(np.array(data_here)*np.array(weights_here))
+                feature_N = np.nansum(np.array(data_here)[conformers_to_use]*weights_N)
                 #print("%s:\naverage over all (%i): %.3f / %.3f\naverage over %i: %.3f"%(p, n_conformers, feature_all, feature_ref, N, feature_N))
             ligand_data[molname]["confdata"][p]=data_here
         #else:

@@ -1,8 +1,5 @@
-
-
-
 def get_link0(n):
-    mem = int(round(96/40*n-0.5))  #int(round(96/40*n-0.5))
+    mem = 16  #Modified to 16GB for studix cluster #modifiable by user
     return("%%nprocs=%i\n%%mem=%iGB\n"%(n, mem))
 
 # jobsetup: keywords for individual jobs and respective spin/charge card
@@ -10,13 +7,13 @@ jobsetup = {
 "sp_1": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ density=current output=wfn ","0 1",],
 "sp_nmr": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ nmr=giao ","0 1",],
 "sp_efg": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ prop=efg ","0 1",],
-"sp_nbo": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ pop=nbo7 ","0 1",],
+"sp_nbo": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ pop=nbo ","0 1",],
 "sp_solv": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ scrf=(SMD,solvent=chloroform) ","0 1",],
-"sp_rc": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ pop=nbo7 ","1 2",],
-"sp_ra": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ pop=nbo7 ","-1 2",],
+"sp_rc": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ pop=nbo ","1 2",],
+"sp_ra": ["# PBE1PBE/def2TZVP int=(grid=ultrafine) empiricaldispersion=GD3BJ pop=nbo ","-1 2",],
 "opt_freq": ["# PBEPBE/6-31+G(d,p) denfit int=(grid=ultrafine) empiricaldispersion=GD3BJ opt freq=noraman ","0 1",],
 "opt_recalc": ["# PBEPBE/6-31+G(d,p) denfit int=(grid=ultrafine) empiricaldispersion=GD3BJ opt=(recalcfc=50) freq=noraman ","0 1",],
-}
+} #No NBO7 on STUDIX, using default NBO
 
 # add options and a list of keys from 'jobsetup' to get other job combinations
 joboptions = {
@@ -49,7 +46,7 @@ import os,sys,re
 #for basis/ECP selection. Br has been removed
 heavy = ["K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Kr","Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl","Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr"] #,"Br"
         
-basisset_pat = re.compile("/\S*")
+basisset_pat = re.compile(r"/\S*")
 
 def metaldetector(geom,job):
     elements = [i.strip().split(" ")[0].title() for i in geom.strip().split("\n")]
@@ -59,7 +56,7 @@ def metaldetector(geom,job):
         isheavy = True
         basisset = re.search(basisset_pat,jobsetup[job][0])[0]
         basiscard = f"{otherelems} 0\n{basisset[1:]}\n****\n{heavyelems} 0\n{ecps[job[:2]]}\n****\n\n{heavyelems} 0\n{ecps[job[:2]]}\n\n"
-        if re.search("6-31\+*G",basisset):
+        if re.search(r"6-31\+*G",basisset):
             newroute = re.sub(basisset_pat," gen 6D pseudo=read",jobsetup[job][0])
         else:
             newroute = re.sub(basisset," gen pseudo=read",jobsetup[job][0])
@@ -129,7 +126,7 @@ get_geoms = {"xyz":get_geom_xyz,
              "out":get_geom_gout,         
          }
 
-def write_coms(directory, name, suffix, geometry, joboption, num_processors=40):
+def write_coms(directory, name, suffix, geometry, joboption, num_processors=16): #modified for studix, modifiable by user
     filecontent = ""
     read = 0 # write "geom=check guess=read"
     link = 0 # write "--Link1--" at the beginning

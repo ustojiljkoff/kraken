@@ -1,31 +1,24 @@
 import os,time,sys
 import numpy as np
-# import check_convergence_conformers as ccc
 import yaml
 from yaml import CLoader as Loader
 import pandas as pd
 import uuid
 import matplotlib.pyplot as plt
-
 import subprocess
-
 import pyximport
 pyximport.install()
 import ConfPruneIdx as ConfPrune
-
 import itertools
 from rdkit import Chem,Geometry
 from rdkit.Chem import rdmolfiles, AllChem, rdMolAlign, rdmolops
-
-
 import openbabel
 obConversion = openbabel.OBConversion()
 obConversion.SetInAndOutFormats("xyz", "sdf")
-
 import PL_gaussian_input_200411 as PL_gaussian_input
-
 from joblib import Parallel,delayed
 import multiprocessing
+from utils import *
 nproc = 5#multiprocessing.cpu_count() - 4                                   
 
 masses = {'H' : 1.008,'HE' : 4.003, 'LI' : 6.941, 'BE' : 9.012,\
@@ -84,7 +77,7 @@ def get_conmat(elements, coords):                                               
                 rco = rcov[elements[i]]+rcov[elements[iat]]                                                        #*
                 rco = rco*k2                                                                                       #*
                 rr=rco/r                                                                                           #*
-                damp=1.0/(1.0+np.math.exp(-k1*(rr-1.0)))                                                           #*
+                damp=1.0/(1.0+np.exp(-k1*(rr-1.0)))                                                           #*
                 if damp > 0.85: #check if threshold is good enough for general purpose                             #*
                     conmat[i,iat],conmat[iat,i] = 1,1                                                              #*
     return(conmat)                                                                                                 #*
@@ -159,18 +152,27 @@ def select_RMSD(suffixes,energies, coords_all, elements_all, properties_all,Sel)
     return(rmsdconfs)
 
 def select_MinMax(suffixes, energies, coords_all, elements_all, properties_all, Sel):
-    properties_df = pd.concat([pd.DataFrame(properties_all[suffix]) for suffix in suffixes], keys=suffixes) # Multilevel index with suffix at the first level and the conformer index at the second level
+
+    properties_df = pd.concat([pd.DataFrame(properties_all[suffix]) for suffix in suffixes], keys=suffixes)
 
     nonproblematic_properties = ~properties_df[Sel.usepropsminmax].isna().any()
-    props_argsort = np.argsort(properties_df[nonproblematic_properties[nonproblematic_properties==True].index],axis=0)
+    props_argsort = np.argsort(properties_df[nonproblematic_properties[nonproblematic_properties == True].index], axis=0)
 
-    use = [i for i in range(Sel.use_n)] + [i for i in range(-Sel.use_n,0)] # this allows to pick more than one conformer minimizing/maximizing each property
-    absindices = sorted(set(props_argsort.iloc[use].values.reshape(-1))) # absolute indices of the min/max conformers in the Multilevel index
-    setindices = [properties_df.index[i] for i in absindices] # indices of the min/max conformers within each ligand set. E.g. [("Ni",4),("noNi",0)]
-    minmaxconfs = {i:[] for i in suffixes}
-    [minmaxconfs[k].append(v) for k,v in setindices]
+    use = [i for i in range(Sel.use_n)] + [i for i in range(-Sel.use_n, 0)]
 
-    return(minmaxconfs)
+    # Adjust indexing based on the type of props_argsort
+    if isinstance(props_argsort, np.ndarray):
+        absindices = sorted(set(props_argsort[use].reshape(-1)))
+    else:
+        absindices = sorted(set(props_argsort.iloc[use].values.reshape(-1)))
+
+
+    setindices = [properties_df.index[i] for i in absindices]
+
+    minmaxconfs = {i: [] for i in suffixes}
+    [minmaxconfs[k].append(v) for k, v in setindices]
+
+    return minmaxconfs
 
 def select_all(suffixes,energies, coords_all, elements_all, properties_all,Sel):
     conformers_to_use = {}
@@ -427,7 +429,7 @@ import sys
 import os
 import sys
 sys.path.append("../../")
-import PL_dft_library_201027 ##changed from PL_dft_library 5/17/21 by EP
+import PL_dft_library_201027 as PL_dft_library
 import pathlib as pl
 
 
@@ -518,32 +520,6 @@ def get_time(mass, params, deg):
 def conformer_selection_main(molname, alloc = "rrg-aspuru"):
     print('Hello, we are beginning conformer_selection_main!')
     warnings=""
-    
-    ###this section is for setting times on niagara - shouldn't need
-    # read the reference times and fit to the curve
-    #times=[]
-    #for idx,line in enumerate(open("timing_new.csv","r")):
-    #    if idx>0:
-    #        times.append([float(line.split()[0].split(";")[4]),float(line.split()[0].split(";")[8])])
-    #times = np.array(times)
-    #deg=2
-    #params = np.polyfit(times[:,0], times[:,1], 2)
-    #
-    #'''
-    #ts=[]
-    #ms = np.linspace(100,500,1000)
-    #for m in ms:
-    #    t = get_time(m, params, deg)
-    #    ts.append(t)
-    #plt.figure()
-    #plt.scatter(times[:,0], times[:,1])
-    #plt.plot(ms, ts, "k-")
-    #plt.xlabel("moleceular weight")
-    #plt.ylabel("cpu hours")
-    #plt.savefig("times.png")
-    #plt.close()
-    #'''
-
 
     starttime_all = time.time()
     Sel = SelectionSettings()
@@ -554,7 +530,7 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
 
     suffixes = []
     if os.path.exists(outfilename1):
-        suffixes.append("noNi")
+        suffixes.append("noNi") 
     if os.path.exists(outfilename2):
         suffixes.append("Ni")
     if len(suffixes) == 0:
@@ -564,26 +540,22 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
 
 
 
-
     maindirectory = "selected_conformers"
     if not os.path.exists(maindirectory):
         try:
             os.mkdir(maindirectory)
         except:
             pass
-
     if not os.path.exists("%s/%s"%(maindirectory, molname)):
         try:
             os.mkdir("%s/%s"%(maindirectory, molname))
         except:
             pass
-
     if not os.path.exists("tempfiles"):
         try:
             os.mkdir("tempfiles")
         except:
             pass
-
     if not os.path.exists("tempfiles/%s"%(molname)):
         try:
             os.mkdir("tempfiles/%s"%(molname))
@@ -634,7 +606,6 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
             print("ERROR: %s has inconsistent structures between the conformer sets, check manually."%(molname))             #*
             warnings+="ERROR: %s has inconsistent structures between the conformer sets, check manually.\n"%(molname)        #*
             #return(False, warnings)                                                                                          #*
-     
     print(f"{round((time.time()-starttime),2)} sec - Starting conformer selection")
     
     # # Ligand filter
@@ -656,7 +627,6 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
                 obConversion.ReadFile(mol, "{}.xyz".format(filename))   
                 obConversion.WriteFile(mol, "{}.sdf".format(filename))
                 sdffiles[suffix].append(filename)
-
 
 
         print(f"{round((time.time()-starttime),2)} sec - Creating molobjects")
@@ -683,7 +653,6 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
         
 
         ## optional: remove temporary .xyz and .sdf files 
-
 
         if runrmsd == True:                                                                                         #*
             print(f"{round((time.time()-starttime),2)} sec - RMSD Matrix")                                          #*
@@ -734,75 +703,8 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
             remove = set(np.where(rmsd_matrix < 0.2)[1])                                                            #*
             conformers_to_use["Ni"] = [i for i in conformers_to_use["Ni"] if i not in remove]                       #*
 
-    # num_todo=0
-    # for suffix in suffixes:
-        # for conf in conformers_to_use[suffix]:
-            # num_todo+=1
 
-    # # estimate time
-    # elements = data_here[suffixes[0]]["confdata"]["elements"][0][:-1]
-    # mass = get_mass(elements)
-    # print("%s has a mass of %f"%(molname, mass))
-    # t = get_time(mass, params, deg) # in cpu hours
-    # safety_factor=1.5
-    # t *= safety_factor
-    # print("%s has an estimated run time of %.2f CPU hours incl. a safety factor of %.2f"%(molname, t, safety_factor))
-    # print("%s has an estimated run time of %.2f node hours incl. a safety factor of %.2f"%(molname, t/40.0, safety_factor))
-    
-    # t/=40.0 # in node hours
-    # if t>24.0:
-        # print("ERROR: %s will probably not finish within 24 hours"%(molname))
-        # warnings+="ERROR: %s will probably not finish within 24 hours\n"%(molname)
-        # return(False, warnings)
-    # if t>12.0:
-        # print("WARNING: %s will probably not finish within 12 hours, need %i cpus for %i conformers"%(molname, num_todo, num_todo))
-    # print("%i gaussian calculation have to be done"%(num_todo))
-    # '''
-    # # minimum number of processors per job, defined by 40/num_todo
-    # if num_todo in [1,2,4,5,8,10,20]:
-        # min_procs1 = 40//num_todo
-    # elif num_todo == 3:
-        # min_procs1 = 40
-    # elif num_todo == 6:
-        # min_procs1 = 20
-    # elif num_todo == 7:
-        # min_procs1 = 10
-    # else:
-        # min_procs1 = 40//num_todo
-    # if min_procs1 == 0:
-        # min_procs1 = 1
-    # print("minimum number of processors as defined by 40/num_confs is %i"%(min_procs1))
-    # # minimum number of processors per job, defined by estimated upped bond of runtime
-    # min_procs2 = int(round(40.0*t/24.0))
-    # if min_procs2 == 0:
-        # min_procs2 = 1
-    # print("minimum number of processors as defined by maximum runtime is %i"%(min_procs2))
-
-
-    # if num_todo==1:
-        # min_procs = 40
-    # elif num_todo==2:
-        
-
-    # # max of both
-    # min_procs = max(min_procs1, min_procs2)
-    # print("minimum number of processors by both criteria: %i"%(min_procs))
-    # # round up numbers that don't make sense (only 1,2,4,5,10,20 and 40 make sense)
-    # if min_procs in [1,2,4,5,10,20,40]:
-        # pass
-    # elif min_procs == 3:
-        # min_procs = 4
-    # elif min_procs in [6, 7, 8, 9]:
-        # min_procs = 10
-    # elif min_procs < 20:
-        # min_procs = 20
-    # elif min_procs < 40:
-        # min_procs = 40
-    # print("minimum number of processors after rounding up to divisors of 40: %i"%(min_procs))
-    # '''
-
-
-    num_processors = 40  ### make this a user variable
+    num_processors = 16  ### make this a user variable US!
     todolist=open("{}/{}/todo.txt".format(maindirectory, molname), "w", newline='\n')
     for suffix in suffixes:
         with open("{}/{}/confselection_minmax_{}.txt".format(maindirectory, molname, suffix),"a", newline='\n') as f:
@@ -817,45 +719,19 @@ def conformer_selection_main(molname, alloc = "rrg-aspuru"):
                     pass
             geometry_string = write_xyz("./{}/{}/{}/{}".format(maindirectory, molname, confname, molname), conf, data_here[suffix], writefile=False) # if writefile is False, this only returns the geometry as a string as required by the next function to write the .com file
             PL_gaussian_input.write_coms("./{}/{}/{}/".format(maindirectory, molname, confname), confname, "", geometry_string, "all", num_processors)
-            #PL_gaussian_input.write_coms("./{}/{}/{}/".format(maindirectory, molname, confname), confname, "_singlejob", geometry_string, "all", num_processors)
             
+            sub_script_dir = f"{sub_script_folder}/{maindirectory}/{molname}/{confname}"
             
-            ##do what is necessary here to write a submit script for your cluster
+            os.chdir(sub_script_dir) #just so the checkpoint file is in the same directory as the .com file and the output file file
+            cmd = f"{gsub} {confname}.com"
+
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            os.chdir(sub_script_folder)
             
-            #toronto
-            #allocation = "#SBATCH --account=ctb-ccgem"
-            #allocation = "#SBATCH --account=rrg-aspuru"
-            #allocation = "#SBATCH --account=%s"%(alloc)  ###used for write submit job later on
-            #write_submit_singlejob(molname, confname, maindirectory, allocation)
-            
-            #utah
-            walltime = 24  ### make this a user-defined variable too
-            
-            sub_script_path = "/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/sub16_PL"
-            ####### fix this here!!!
-            sub_script_dir = f"/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/{maindirectory}/{molname}/{confname}"
-           
-            #print(sub_script_path, sub_script_dir)
-          
-            run_submit_script = subprocess.run(f"{sub_script_path} {sub_script_dir} {walltime}",stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding="ascii",shell=True)
+
 
 
     todolist.close()
-
-
-
-
-
-    # # get the number of nodes required
-    # jobs_per_node = 40//num_processors
-    # # estimated linear scaling based on time on 40 cores
-    # num_done_in_24_per_node = int(round(24.0/t-0.5))*jobs_per_node
-    # num_nodes_ideal = num_todo/num_done_in_24_per_node
-    # num_nodes=int(round(num_nodes_ideal + 0.5))
-    # if num_nodes==0:
-        # num_nodes=1
-    # #num_nodes = min(num_todo, 5)
-    ##write_runpy(molname, maindirectory)   #commented out by EP 5/18/2021
     write_endpy(molname, maindirectory)
 
     #print("   ---   all done with %s. %i jobs todo on %i nodes, %.2f hours per Gaussian job. Total time: %.2f sec"%(molname, num_todo, num_nodes, t, round((time.time()-starttime_all),2)))   ##num_todo is not defined rn. fix or remove this

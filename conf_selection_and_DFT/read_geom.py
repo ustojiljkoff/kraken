@@ -34,7 +34,7 @@ def fchk_geom(path,filename):
             start = ind
             break
     atomnums = np.array("".join(cont[start+1:start+1+div_r(natoms,6)]).split(),dtype=int)
-    coords = np.array("".join(cont[start+3+div_r(natoms,6)+div_r(natoms,5):start+3+div_r(natoms,6)+div_r(natoms,5)+div_r(natoms,5/3)]).split(),dtype=np.float).reshape(natoms,3) * BA # in Angstrom 
+    coords = np.array("".join(cont[start+3+div_r(natoms,6)+div_r(natoms,5):start+3+div_r(natoms,6)+div_r(natoms,5)+div_r(natoms,5/3)]).split(),dtype=float).reshape(natoms,3) * BA # in Angstrom 
     geom = []
     for i in range(natoms):
         geom.append([periodictable[atomnums[i]]]+list(np.round(coords[i],8)))

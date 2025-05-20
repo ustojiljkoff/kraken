@@ -6,12 +6,14 @@ import pathlib as pl
 import subprocess as sp
 from ded_pdb import pdb
 import matplotlib.pyplot as plt
+import dftd4
+import os
+import yaml
+from pathlib import Path
+from utils import *
+#import dftd3 ##got errors with conda/pip install dftd3, ergo loading through utils.py and yaml from the folder.
 
-
-# Define external program directories
-# These paths need to be adjusted!
-dftd3 = pl.Path("/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/Pint/dftd3")
-dftd4 = pl.Path("/uufs/chpc.utah.edu/common/home/u1209999/PL_workflow/new_org_use/Pint/dftd4")
+dftd4 = "dftd4" 
 cwd = pl.Path.cwd()
 
 # Define constants
@@ -62,54 +64,62 @@ def rm_anch(atoms, xyz, surf, anchor, cn=None):
 	else:
 		return atoms, xyz, surf, cn
 
-def disp(xyz, method, charge=0):
+def disp(xyz, method, dftd3=dftd3, charge=0):
 	# Run DFTD3
 	if method.casefold() == "d3".casefold():
-		d3_out = sp.check_output([dftd3, xyz, "-func", "b3-lyp", "-bjm"])
-		d3_out = d3_out.decode('utf-8')
-		with open(xyz.split(".")[-2]+"_d3.out","w") as f:
-			f.write(d3_out)
+		try:
+			d3_out = sp.check_output([dftd3, xyz, "-func", "b3-lyp", "-bjm"])
+			d3_out = d3_out.decode('utf-8')
+			with open(xyz.split(".")[-2]+"_d3.out","w") as f:
+				f.write(d3_out)
 		# Read output
-		start = "#               XYZ [au]               R0(AA) [Ang.]  CN       C6(AA)     C8(AA)   C10(AA) [au]"
-		end = "molecular C6(AA) [au]"
-		read = 0
-		d3 = []
-		for line in d3_out.splitlines():
-			if start in line and read == 0:
-				read = 1
-				continue
-			elif end in line and read == 1:
-				break
-			elif read == 1:
-				if line.split() != []:
-					d3.append([float(line.split()[7]), float(line.split()[8])])
-				else:
+			start = "#               XYZ [au]               R0(AA) [Ang.]  CN       C6(AA)     C8(AA)   C10(AA) [au]"
+			end = "molecular C6(AA) [au]"
+			read = 0
+			d3 = []
+			for line in d3_out.splitlines():
+				if start in line and read == 0:
+					read = 1
 					continue
-		return d3
+				elif end in line and read == 1:
+					break
+				elif read == 1:
+					if line.split() != []:
+						d3.append([float(line.split()[7]), float(line.split()[8])])
+					else:
+						continue
+			return d3
+		except Exception as e:
+			print(f"Error running DFTD3: {e}")
+			sys.exit(1)
 	
 	# Run DFTD4
 	elif method.casefold() == "d4".casefold():
-		d4_out = sp.check_output([dftd4, xyz, "-c", str(charge), "--molc6"])
-		d4_out = d4_out.decode('utf-8')
-		with open(xyz.split(".")[-2]+"_d4.out","w") as f:
-			f.write(d4_out)
-		# Read output
-		start = "#   Z        covCN         q      C6AA      C8AA      α(0)"
-		end = " Mol. C6AA /au"
-		read = 0
-		d4 = []
-		for line in d4_out.splitlines():
-			if start in line and read == 0:
-				read = 1
-				continue
-			elif end in line and read == 1:
-				break
-			elif read == 1:
-				if line.split() != []:
-					d4.append([float(line.split()[5]),float(line.split()[6])])
-				else:
+		try:	
+			d4_out = sp.check_output([dftd4, xyz, "-c", str(charge), "--molc6"])
+			d4_out = d4_out.decode('utf-8')
+			with open(xyz.split(".")[-2]+"_d4.out","w") as f:
+				f.write(d4_out)
+			# Read output
+			start = "#   Z        covCN         q      C6AA      C8AA      α(0)"
+			end = " Mol. C6AA /au"
+			read = 0
+			d4 = []
+			for line in d4_out.splitlines():
+				if start in line and read == 0:
+					read = 1
 					continue
-		return d4
+				elif end in line and read == 1:
+					break
+				elif read == 1:
+					if line.split() != []:
+						d4.append([float(line.split()[5]),float(line.split()[6])])
+					else:
+						continue
+			return d4
+		except Exception as e:
+			print(f"Error running DFTD4: {e}")
+			sys.exit(1)
 
 def main():
 	# Parse arguments
@@ -135,8 +145,8 @@ def main():
 	surf = np.genfromtxt(pl.Path(args.surf).resolve(), delimiter=None, usecols = (0, 1, 2), skip_header = 1)
 	
 	# Calculate Cn coefficients
-	cn = disp(pl.Path(args.xyz).resolve().name, args.disp, args.charge)
-	
+	cn = disp(pl.Path(args.xyz).resolve().name, args.disp, dftd3, args.charge)
+
 	# Remove anchor group
 	if args.anchor != None:
 		anchor = np.genfromtxt(pl.Path(args.anchor).resolve(), delimiter=None, usecols = (0), skip_header = 0, dtype=int)
@@ -168,16 +178,6 @@ def main():
 	pint_std = np.std(pint)
 	pint_max = np.mean(np.sort(pint)[-10:]) # to increase robustness
 	pint_min = np.median(np.sort(pint)[:100]) # to increase robustness
-
-	# plt.figure(figsize=(5, 5))
-	# hist,bins = np.histogram(pint,bins="auto")#"auto"
-	# plt.hist(pint, bins, alpha=0.5, label='pint',color="black")
-	# # plt.legend(loc='best')
-	# plt.xlabel("pint",fontsize=20)
-	# plt.ylabel("N points",fontsize=20)
-	# plt.xticks(fontsize=15)
-	# plt.yticks(fontsize=15)
-	# plt.savefig("pinthist.png")
 	
 	# Save pint surface data
 	with open(cwd / pl.Path(filename+"_ded_surf_" + args.disp + ".out"), 'w') as f:
@@ -186,20 +186,17 @@ def main():
 	
 	fpdb = pdb(cwd / pl.Path(filename+"_ded_surf_" + args.disp + ".out"), cwd / pl.Path(filename+"_ded_surf_" + args.disp + ".out"), 0, 3)
 	fpdb.dump(filename+"_ded_surf_" + args.disp)
-	
 	# Save pint report
-	with open(cwd / pl.Path(filename+"_ded_" + args.disp + ".txt"), 'w') as f:
-		f.write('P PARAMETERS')
-		f.write('\n')
-		f.write('\n')
-		f.write('Pint ' + format(format(pint_ave, '.2f'), '>6s'))
-		f.write('\n')
-		f.write('dP ' + format(format(pint_std, '.2f'), '>6s'))
-		f.write('\n')
-		f.write('Pmin ' + format(format(pint_min, '.2f'), '>6s'))
-		f.write('\n')
-		f.write('Pmax ' + format(format(pint_max, '.2f'), '>6s'))
-		f.write('\n')
+	try:
+		#filename = "hey"
+		with open(cwd / pl.Path(filename+"_ded_" + args.disp + ".txt"), 'w') as f:
+			f.write('P PARAMETERS\n\n')
+			f.write('Pint ' + format(format(pint_ave, '.2f'), '>6s') + '\n')
+			f.write('dP ' + format(format(pint_std, '.2f'), '>6s') + '\n')
+			f.write('Pmin ' + format(format(pint_min, '.2f'), '>6s') + '\n')
+			f.write('Pmax ' + format(format(pint_max, '.2f'), '>6s') + '\n')
+	except Exception as e:
+		print(f"Error writing file: {e}")
 
 if __name__ == "__main__":
 	main()
